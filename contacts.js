@@ -1,14 +1,13 @@
 const path = require("path");
 const fs = require("fs");
-const { v4: uuidv4 } = require("uuid");
+const { uuid } = require("uuidv4");
 
 const contactsPath = path.join(__dirname, "db", "contacts.json");
 
 async function listContacts() {
   try {
     const data = await fs.promises.readFile(contactsPath);
-    const contacts = await JSON.parse(data);
-    console.table(contacts);
+    return JSON.parse(data);
   } catch (e) {
     console.error("listContacts error", e);
   }
@@ -16,47 +15,64 @@ async function listContacts() {
 
 async function getContactById(contactId) {
   try {
-    const data = await fs.promises.readFile(contactsPath);
-    const contacts = await JSON.parse(data);
-    const contactById = await contacts.find(({ id }) => id === contactId);
-    console.table(contactById);
-  } catch (e) {
-    console.error("getContactById error", e);
-  }
-}
+    if (contactId.length <= 2) {
+      contactId = parseInt(contactId);
+    }
 
-async function removeContact(contactId) {
-  try {
     const data = await fs.promises.readFile(contactsPath);
-    const contacts = await JSON.parse(data);
-    const contactsAfterDelete = await contacts.filter(
-      ({ id }) => id !== contactId
-    );
-    const refreshedData = await fs.promises.writeFile(
-      contactsPath,
-      JSON.stringify(contactsAfterDelete)
-    );
-    console.table(contactsAfterDelete);
-    return refreshedData;
+    const contacts = JSON.parse(data);
+    const contactById = contacts.find(({ id }) => id === contactId);
+    return contactById;
   } catch (e) {
     console.error("removeContact error", e);
   }
 }
 
-async function addContact(name, email, phone) {
+async function removeContact(contactId) {
   try {
-    const id = uuidv4();
-    const newContact = { id, name, email, phone };
-
+    if (contactId.length <= 2) {
+      contactId = parseInt(contactId);
+    }
     const data = await fs.promises.readFile(contactsPath);
-    const contacts = await JSON.parse(data);
-    const contactsAfterAdd = await [...contacts, newContact];
-    const refreshedData = await fs.promises.writeFile(
+    const contacts = JSON.parse(data);
+    const contactsFilter = contacts.filter(({ id }) => id !== contactId);
+    const contactsAfterDelete = await fs.promises.writeFile(
       contactsPath,
-      JSON.stringify(contactsAfterAdd)
+      JSON.stringify(contactsFilter)
     );
-    console.table(contactsAfterAdd);
-    return refreshedData;
+    return contactsAfterDelete;
+  } catch (e) {
+    console.error("removeContact error", e);
+  }
+}
+
+async function addContact({ name, email, phone }) {
+  try {
+    const data = await fs.promises.readFile(contactsPath);
+    const contacts = JSON.parse(data);
+    const newContact = { id: uuid(), name, email, phone };
+    const contactsAfterAdd = [...contacts, newContact];
+    await fs.promises.writeFile(contactsPath, JSON.stringify(contactsAfterAdd));
+    return newContact;
+  } catch (e) {
+    console.error("addContact error", e);
+  }
+}
+
+async function updateContact(contactId, requestBody) {
+  try {
+    if (contactId.length <= 2) {
+      contactId = parseInt(contactId);
+    }
+    const data = await fs.promises.readFile(contactsPath);
+    const contacts = JSON.parse(data);
+    const contactIndexById = contacts.findIndex(({ id }) => id === contactId);
+    contacts[contactIndexById] = {
+      ...contacts[contactIndexById],
+      ...requestBody,
+    };
+    await fs.promises.writeFile(contactsPath, JSON.stringify(contacts));
+    return contacts[contactIndexById];
   } catch (e) {
     console.error("addContact error", e);
   }
@@ -65,6 +81,7 @@ async function addContact(name, email, phone) {
 module.exports = {
   listContacts,
   getContactById,
-  removeContact,
   addContact,
+  removeContact,
+  updateContact,
 };
